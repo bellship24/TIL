@@ -1,0 +1,4 @@
+- 참고 URL: [heketi GitHub - heketi/docs/design/kubernetes-integration.md](https://github.com/heketi/heketi/blob/69b526776a80a2651d2aa70dc6ee1a3421ba6cf8/docs/design/kubernetes-integration.md)
+- 드디어 glusterFS+heketi on k8s 구축을 완료했다.
+- 대략적인 순서는 glusterfs 배포 -> heketi 관련 k8s 오브젝트 배포 -> heketi bootstrap 배포하여 각종 설정, gluster 클러스터 연동 및 heketi.db 에 대한 gluster volume 생성 -> storageClass 생성 -> pvc 사용한 nginx 앱 테스트
+- 하지만, storageClass 설정 시에 svc 의 도메인네임을 resturl 인수에 넣게되면 pvc bound 를 못한다. 관련 로그도 딱히 없고 해결을 못한 부분이다. svc 의 도메인네임 기반 storageClass 를 구축해야 안정성이 보장될 것 같은데 얼른 해결이 필요해 보인다.
