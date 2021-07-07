@@ -81,6 +81,6 @@ build:
 - `build.services.[0].command` 를 통해 insecure 등록이 추가됐다고 보면 된다.
 - `before_script` 에 명시했다시피 gitlab-registry 에 login 한 것을 알 수 있다.
 
-해당 Job 을 실행시키면 아래와 같이 정상적으로 PUSH 된 job 의 log 를 확인할 수 있다.
+이제 해당 Job 을 실행시키면 아래와 같이 정상적으로 PUSH 된 job 의 log 를 확인할 수 있다.
 
 ![](/images/../../../images/2021-07-07-23-52-18.png)
