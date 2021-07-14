@@ -1,3 +1,5 @@
+# GitLab CI
+
 - [ ] .gitlab-ci.yml 에 대한 어느 한국 블로그의 설명글
   - [[blog kr] .gitlab-ci.yml 에 대하여](https://assu10.github.io/dev/2020/10/09/gitlab-runner-3/)
 - [ ] gitlab cicd 기본 개념 교육 영상
@@ -10,3 +12,8 @@
   - [[blog eng] Gitlab Docker Layer Caching for Kubernetes Executor](https://dev.to/liptanbiswas/gitlab-docker-layer-caching-for-kubernetes-executor-39ch)
 - [ ] job artifacts 개념 검토 및 정리
   - [[gitlab docs] job artifacts](https://docs.gitlab.com/ee/ci/pipelines/job_artifacts.html)
+
+# Argo CD
+
+- [ ] project 란?
+  - [[argocd docs] Project](https://argoproj.github.io/argo-cd/user-guide/projects/#projects)

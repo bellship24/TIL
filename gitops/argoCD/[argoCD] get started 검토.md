@@ -175,7 +175,7 @@ argocd-server           LoadBalancer   10.108.222.46    10.0.0.217   80:32160/TC
 
 웹 UI 접근 확인
 
-![](/images/2021-07-12-02-22-34.png)
+![](/.uploads/2021-07-12-02-22-34.png)
 
 ## 4.2. Ingress
 
@@ -332,9 +332,9 @@ argocd app create guestbook \
 
 argocd 웹 UI 로 접근 -> 로그인 -> `+ NEW APP` 클릭 -> 아래 내용 작성 -> `Create` 클릭
 
-![helm-guestbook](/images/2021-07-12-22-48-41.png)
+![helm-guestbook](/.uploads/2021-07-12-22-48-41.png)
 
-![guestbook](/images/2021-07-12-22-51-10.png)
+![guestbook](/.uploads/2021-07-12-22-51-10.png)
 
 # 8. 앱 Sync(배포)
 
@@ -380,9 +380,9 @@ argocd app sync guestbook
 
 guestbook 앱의 `SYNC` -> `SYNCHRONIZE` 클릭
 
-![](/images/2021-07-12-23-01-58.png)
-![](/images/2021-07-12-23-02-55.png)
-![](/images/2021-07-12-23-52-51.png)
+![](/.uploads/2021-07-12-23-01-58.png)
+![](/.uploads/2021-07-12-23-02-55.png)
+![](/.uploads/2021-07-12-23-52-51.png)
 
 CLI 에서 확인
 
@@ -452,8 +452,8 @@ UI 에서 확인
 
 - UI 에서 확인하기 위해서 NodePort 를 사용했다. 여기서 배포된 매니페스트를 아래와 같이 argoCD 에서 수정했다.
 
-![](/images/2021-07-12-23-54-03.png)
+![](/.uploads/2021-07-12-23-54-03.png)
 
 - 아래와 같이 배포한 웹에 접근할 수 있다.
 
-![](/images/2021-07-12-23-55-51.png)
+![](/.uploads/2021-07-12-23-55-51.png)

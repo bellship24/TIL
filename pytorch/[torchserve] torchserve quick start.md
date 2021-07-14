@@ -32,7 +32,7 @@
 
 # 2. TorchServe 아키텍처
 
-![](/images/2021-06-21-14-58-26.png)
+![](/.uploads/2021-06-21-14-58-26.png)
 
 ## 2.1. terminology
 
@@ -182,7 +182,7 @@ torchserve --start --ncs --model-store model_store --models densenet161.mar
 - 먼저, 고양이 이미지를 다운로드 하자.
 
 ``` bash
-curl -O https://raw.githubusercontent.com/pytorch/serve/master/docs/images/kitten_small.jpg
+curl -O https://raw.githubusercontent.com/pytorch/serve/master/docs/.uploads/kitten_small.jpg
 ```
 
 - 다운 받은 고양이 이미지로 prediction endpoint 로 호출하자.

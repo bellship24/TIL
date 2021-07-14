@@ -83,4 +83,4 @@ build:
 - gitlab 예약어를 통해 작성한 Dockerfile 로 도커 빌드를 하여 gitlab registry 에 PUSH 한다.
 - build 가 마무리 되고 gitlab registry 에 올라간 이미지는 gitlab 웹 UI 에서도 확인할 수 있다.
 
-  ![](/images/../../../images/2021-07-08-23-57-52.png)
+  ![](/.uploads/../../../.uploads/2021-07-08-23-57-52.png)

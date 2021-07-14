@@ -176,7 +176,7 @@ curl http://your-loadbalancer-address:8081/models/squeezenet1_1
 ]
 
 
-wget https://raw.githubusercontent.com/pytorch/serve/master/docs/images/kitten_small.jpg
+wget https://raw.githubusercontent.com/pytorch/serve/master/docs/.uploads/kitten_small.jpg
 curl -X POST  http://your-loadbalancer-address:8080/predictions/squeezenet1_1 -T kitten_small.jpg
 
 # You should something similar to the following
@@ -241,7 +241,7 @@ kubectl get pod prometheus-server-f8677599b-xmjbt -o jsonpath='{.status.podIPs[0
 192.168.52.141
 ```
 
-![](/images/2021-06-26-18-49-07.png)
+![](/.uploads/2021-06-26-18-49-07.png)
 
 ## 3.5. 로드밸런서로 grafana 노출시키기
 

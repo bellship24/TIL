@@ -1,6 +1,6 @@
 **요약**
 
-- `gitlab runner k8s executor` 를 사용하면 `dind` 로 `docker build` 를 수행한다. 그런데 `FROM` 으로 `base image` 를 가져올 때 시간이 오래 걸릴 수 있으며 빈번한 작업이므로 시간을 단축시킬 필요가 있다. `docker build` 의 시간을 줄이기 위해서는 여러 가지 방법이 존재한다. docker layer 의 cache 를 사용할 수 있다. 또는 cache 저장소로 aws s3 같은 퍼블릭 클라우드 스토리지나 s3 compatible 인 minio 를 대신해서 쓸 수 있다. 이런 방법들을 검토하고 검증해보자.
+- `gitlab runner k8s executor` 를 사용하면 `dind` 로 `docker build` 를 수행한다. 그런데 `FROM` 으로 `base image` 를 가져올 때 시간이 오래 걸릴 수 있으며 빈번한 작업이므로 시간을 단축시킬 필요가 있다. `docker build` 의 시간을 줄이기 위해서는 여러 가지 방법이 존재한다. 예를 들어, docker layer 의 cache 를 사용할 수 있다. 또는 cache 저장소로 aws s3 같은 퍼블릭 클라우드 스토리지나 s3 compatible 인 minio 를 대신해서 쓸 수 있다. 이런 방법들을 검토하고 검증해보자.
 
 **목차**
 
