@@ -196,7 +196,7 @@ rbac:
 ```
 
 - `image` : default 는 alpine 인데 이를 사용하면 에러가 난다. 현재로는 latest 태그를 사용하여 ubuntu 기반 runner 를 사용해야 에러가 나지 않고 gitlab 에 잘 연동 된다.
-- `gitlabUrl` : 필수 옵션, runner 를 사용할 gitlab 서버의 URL (e.g. https://gitlab.example.com)
+- `gitlabUrl` : 필수 옵션, runner 를 사용할 gitlab 서버의 URL (e.g. `https://gitlab.example.com`)
 - `runnerRegistrationToken` : 필수 옵션, gitlab 에 새로운 runners 를 추가하기 위한 registration token. runner 를 연동할 gitlab repo. 로부터 받을 수 있다.
 - `hostAliases` : 파드 안에 /etc/hosts 밑에 gitlab 도메인을 resolve 하기 위해 추가한다.
 - `certsSecretName` : 사용할 인증서의 secret 이름.
