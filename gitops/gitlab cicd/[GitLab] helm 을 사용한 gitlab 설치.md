@@ -44,7 +44,7 @@
 - [[GitLab Docs] Deployment Guide](https://docs.gitlab.com/charts/installation/deployment.html)
 - [[GitLab Docs] gitlab helm install 의 --set 옵션들](https://docs.gitlab.com/charts/installation/command-line-options.html)
 - [[GitLab Docs] gitlab 관련 인증서](https://docs.gitlab.com/charts/installation/tls.html)
-- [[blog] 온프레미스에 gitlab 공식 helm 으로 설치하기](https://blog.naver.com/PostView.nhn?blogId=kgg1959&logNo=222343163014&parentCategoryNo=&categoryNo=220&viewDate=&isShowPopularPosts=false&from=postView)
+- [[blog] 온프레미스에 gitlab 을 공식 helm chart 로 설치하기](https://blog.naver.com/PostView.nhn?blogId=kgg1959&logNo=222343163014&parentCategoryNo=&categoryNo=220&viewDate=&isShowPopularPosts=false&from=postView)
 - [[GitLab Docs] kubernetes 기반 gitlab 설치 트러블슈팅](https://docs.gitlab.com/charts/troubleshooting/)
 
 # 1. 사전 작업
@@ -54,10 +54,10 @@
 - k8s 클러스터 v1.13+
 - k8s 클러스터 스팩 8vCPU, 30GB RAM 이상 권고
 - kubectl 1.13+
-- Helm v3.2.0+
+- helm v3.2.0+
 - storageClass
 - on-prem 의 경우, metalLB 같은 로드밸런서
-- 로드밸런서 nginx-ingress controller
+- 로드밸런서 용 nginx-ingress controller
 - cert-manager 설치 및 self-signed 인증서 생성
 - gitlab v13.12.4, helm gitlab chart v4.12.4 로 최신버전 사용
 
@@ -140,13 +140,32 @@ TLS certificates
 --set certmanager-issuer.email=me@example.com
 ```
 
+- 만약, self-signed 인증서를 사용한다면, 이 게시글의 뒤에서 다루겠지만, gitlab helm chart 에서 제공하는 cert-manager 실행 시에 대체로 버그가 발생할 수 있으므로 자체 cert-manager 를 사용하는 것이 좋다.
+
 PostgreSQL
 
 - 기본적으로 이 차트는 테스트용으로만 in-cluster PostgreSQL 데이터베이스를 제공한다.
+- 운영 환경에 적합한 데이터베이스를 설정하는 방법은 여기 [[gitlab docs] External PostgreSQL database](https://docs.gitlab.com/charts/advanced/external-db/index.html)를 참고하자.
+- 예를 들어, 외부 postgre 서버가 있다면, 아래와 같이 gitlab 을 helm install 시에 in-cluster postgresql 을 설치하지 않게 하고 외부 postgre 서버에 접근할 수 있도록 인자들을 추가하면 된다.
+
+``` bash
+--set postgresql.install=false
+--set global.psql.host=production.postgress.hostname.local
+--set global.psql.password.secret=kubernetes_secret_name
+--set global.psql.password.key=key_that_contains_postgres_password
+```
 
 Redis
 
+- redis 도 postgre 서버 처럼 운영 시에 외부 redis 서버를 연동할 수 있다. 자세한 내용은 여기 [[gitlab docs] Configure Redis settings](https://docs.gitlab.com/charts/charts/globals.html#configure-redis-settings) 를 참고하자.
+- 그 외에 설정은 여기 [[gitlab docs] Configure Redis settings](https://docs.gitlab.com/charts/charts/globals.html#configure-redis-settings) 를 참고하자.
+
 MinIO
+
+- 기본적으로, 이 공식 gitlab helm chart 는 object storage API 를 제공하는 in-cluster MinIO deployment 도 제공한다.
+- 이 object storage 는 gitlab 이 kubernetes 에서 high-available 한 persistent data 를 저장하기 위해 사용한다.
+- 하지만, 운영환경에서 minio 를 사용하는 것을 권고하지는 않는다. 대신에 hosted object storage 로써 Google Cloud Storage 나 AWS S3 를 권고한다.
+- 이런 설정을 하기 위해서는 여기 [[gitlab docs] External object storage](https://docs.gitlab.com/charts/advanced/external-object-storage/index.html) 를 참고하자.
 
 Prometheus
 
@@ -157,6 +176,8 @@ Incoming email
 RBAC
 
 CPU and RAM Resource Requirements
+
+- 이 helm chart 의 GitLab 구성 요소 (PostgreSQL, Redis 또는 MinIO 제외) 에 대한 리소스 request 및 replica 수는 기본적으로 소규모 프로덕션 배포에 적합하도록 설정되어 있다. 이는 최소 `8vCPU` 및 `30GB RAM` 이 있는 클러스터에 적합하도록 고안됐다. 운영 환경이 아닌 곳에 배포하려는 경우, 더 작은 클러스터에 맞도록 기본값을 줄일 수 있다.
 
 # 3. helm 으로 gitlab 배포
 
