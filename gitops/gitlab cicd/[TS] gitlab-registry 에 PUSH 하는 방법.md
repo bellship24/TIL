@@ -1,3 +1,4 @@
+
 **요약**
 
 > **gitlab CI 과정에서 gitlab-registry 에 PUSH 하는 방법을 검토 및 검증해보자.**
