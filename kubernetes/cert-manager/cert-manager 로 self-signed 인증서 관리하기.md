@@ -1,62 +1,119 @@
 **목차**
 
-- [1. SelfSigned](#1-selfsigned)
-- [2. 루트 인증서 란?](#2-루트-인증서-란)
-  - [2.1. 웹브라우저에서 인증서 보는 방법](#21-웹브라우저에서-인증서-보는-방법)
-- [3. Kubernetes Ingress Controller Fake Certificate 란?](#3-kubernetes-ingress-controller-fake-certificate-란)
+- [1. 요약](#1-요약)
+- [2. SelfSigned](#2-selfsigned)
+  - [2.1. SelfSigned Issuer 배포하는 방법](#21-selfsigned-issuer-배포하는-방법)
+  - [2.2. CA Issuer Bootstrap](#22-ca-issuer-bootstrap)
+  - [2.3. 주의 사항](#23-주의-사항)
 
 **참고**
 
 - [[cert-manager docs] SelfSigned](https://cert-manager.io/docs/configuration/selfsigned/)
-- [[Blog] Root CA 인증서는 무엇인가?](https://brunch.co.kr/@sangjinkang/47)
 
 ---
 
-# 1. SelfSigned
+# 1. 요약
+
+> cert-manager 에서 self-signed 인증서의 용도, 생성 방법, 사용 방법을 검토 및 검증해보자.
+
+# 2. SelfSigned
 
 `SelfSigned` issuer 는 CA(Certificate Authority, 인증 기관) 자체를 나타내지는 않지만 대신 주어진 개인키를 사용하여 인증서를 "자체 서명" 할 것임을 나타낸다. 즉, 인증서의 개인키는 인증서 자체에 서명하는 데 사용된다.
-이 `Issuer` 타입은 커스텀 PKI(Public Key Infrastructure) 에 대한 루트 인증서를 부트스트랩하거나 간단한 임시 인증서를 만드는 데 유용하다.
+이 `Issuer` 타입은 커스텀 PKI(Public Key Infrastructure) 에 대한 루트 인증서를 부트스트랩하거나 간단한 임시 인증서를 만드는 데 유용하다.
 
+SelfSigned issuer 에는 보안 문제 등 주의 사항이 있다. 일반적으로 SelfSigned issuer 보다는 CA issuer 를 사용하는 것이 좋다. 즉, SelfSigned issuer 는 초기에 CA issuer 를 부트스트랩하는 데 매우 유용하다.
+
+## 2.1. SelfSigned Issuer 배포하는 방법
+
+SelfSigned issuer 는 k8s 의 다른 리소스에 종속되지 않으므로 구성이 간단하다. issuer spec 에 `SelfSigned: {}` 만 있으면 된다.
+
+``` yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: sandbox
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-cluster-issuer
+spec:
+  selfSigned: {}
+```
+
+배포 확인
+
+``` bash
+$ kubectl get issuers  -n sandbox -o wide selfsigned-issuer
+NAME                READY   STATUS                AGE
+selfsigned-issuer   True                          2m
+
+$ kubectl get clusterissuers -o wide selfsigned-cluster-issuer
+NAME                        READY   STATUS   AGE
+selfsigned-cluster-issuer   True             3m
+```
+
+## 2.2. CA Issuer Bootstrap
+
+앞서 말했듯이 selfsigned issuer 의 권고되는 사용 방법 중 하나는 private 한 PKI 에서 cert-manager CA issuer 를 포함하여 custom root 인증서를 bootstaping 하는 것이다.
+
+아래 yaml 은 SelfSigned issuer 를 생성하고 root 인증서를 발급하며 이 인증서를 CA issuer 로 사용하는 예제이다.
+
+``` yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sandbox
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-selfsigned-ca
+  namespace: sandbox
+spec:
+  isCA: true
+  commonName: my-selfsigned-ca
+  secretName: root-secret
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: my-ca-issuer
+  namespace: sandbox
+spec:
+  ca:
+    secretName: root-secret
+```
 
 - commonName: CA 이름
 - secretName: 인증서가 저장될 Secret 이름
 
-# 2. 루트 인증서 란?
+## 2.3. 주의 사항
 
-루트 인증서는 루트 인증 기관(CA)에서 관리하는 공개키 인증서나 자체 서명 인증서이다. 일반적으로 인증서는 ROOT, Intermediate, Leaf 3단계로 이루어져 있고 이를 인증서 체인(certificate chain) 이라고 한다. 사용자가 구입한 SSL 인증서는 Leaf 인증서를 의미하며 이는 인증서 체인의 일부이지 전체가 아니다. 이 3 개의 인증서 체인은 하위 구조의 인증서를 서명하고 상위 구조의 인증서를 참고하는 방식으로 만들어진다.
+신뢰
 
-![3개의 인증서 체인](/.uploads/2021-07-18-11-32-20.png)
+- SelfSigned 인증서를 사용하는 클라이언트는 사전에 인증서가 없으면 인증서를 신뢰할 수 없다. 따라서 대부분의 클라이언트는 메시지 가로채기(man-in-the-middle) 공격이 발생할 경우 보안에 영향을 미치는 "TOFU"(첫 사용에 대한 신뢰)를 강제로 사용할 수 밖에 없다.
 
-서버의 인증서를 신뢰하려면 루트 CA 로 추적할 수 있어야 한다. 브라우저가 웹 사이트에 접속하면 웹 사이트의 인증서를 다운로드하고 해당 인증서를 루트에 다시 연결하기 시작한다. 체인을 따라가며 신뢰할 수 있는 루트 인증서에 도달할 때까지 계속해서 역추적한다.
+인증서 유효성
 
-루트 CA 인증서는 CA 에서 자체 서명한(self-signed) 인증서로 공개키 기반 암호화를 사용한다. 모든 유효한 SSL 인증서는 업계에서 보안 리더로 알려진 신뢰할 수 있는 CA 가 발행한 루트 CA 인증서 아래 체인에 위치한다.
-
-중간 인증서는 루트 인증서와 SSL 인증서 사이에 구분을 만들어 위험을 완화하도록 설계된 인증서이다. 이는 루트 인증서가 가장 많은 권한을 갖고 보호되어야 하기 때문에 루트 인증서가 손상될 경우를 대비한다.
-
-## 2.1. 웹브라우저에서 인증서 보는 방법
-
-인증서 체인을 살펴보자. 먼저, 아무 웹사이트에 접속하여 브라우저 주소창의 주소 앞 열쇠 모양을 클릭하여 팝업된 메뉴 중 `인증서 보기` 부분을 클릭한다.
-
-![브라우저에서 인증서 찾는 방법](/.uploads/2021-07-18-11-38-49.png)
-
-그러면 아래와 같이 인증서 정보를 볼 수 있다.
-
-![인증서 정보 조회](/.uploads/2021-07-18-11-53-07.png)
-
-이 웹사이트가 사용하는 인증서 정보는 다음과 같다.
-
-- ROOT CA: DigiCert 라는 미국 회사가 ROOT CA 인증서를 만들었음.
-- 중간 인증서: Thawte TLS RSA CA
-- SSL 인증서: *.brunch.co.kr 도메인 전용 인증서
-
-위에 인증서 중간에 보면 `인증서가 유효함` 이라는 문구가 있다. 이는 이 웹사이트에 설치된 인증서를 접속한 브라우저에서도 유효하다고 인정한 것이고 정상적으로 SSL 통신을 웹 서버와 진행할 수 있다는 의미이다. 브라우저 혹은 OS 는 믿을 수 있는 CA 리스트를 가지고 있고 이를 바탕으로 유효하고 적법한 인증서인지를 확인한다.
-
-ROOT CA 인증서는 웹 브라우저의 특정 저장소에 포함되어 있고 일부 운영체제에는 사전 설치되어 있기 때문에 따로 다운로드할 필요는 없다. 루트 인증서를 발급한 기관이 운영체제가 신뢰할 수 있는 루트 CA 목록에 없으면 인증서 자체는 신뢰할 수 있는 인증서가 아니라는 경고가 아래와 같이 표시된다.
-
-![신뢰할 수 없는 인증서 경고](/.uploads/2021-07-18-11-59-49.png)
-
-어떤 ROOT CA 들이 브라우저에서 유효하다고 인정받고 있는지(Trusted ROOT CA Cert.) 리스트를 확인하는 방법으로 MacOS 에서는 keychain/시스템 키체인/시스템 루트/인증서 에서 확인 가능하다.
-
-![MacOS 에서의 Trusted ROOT CA Cert](/.uploads/2021-07-18-12-34-11.png)
-
-# 3. Kubernetes Ingress Controller Fake Certificate 란?
+- 자체 서명된 인증서의 부작용 중 하나는 해당 주체 DN(Distinguished Name) 과 발급자 DN 이 동일하다는 것이다.
+- 그러나 자체 서명된 인증서에는 기본적으로 설정된 subject DN 이 없다. 인증서의 subject DN 을 수동으로 설정하지 않으면 issuer DN 이 비어 있고 인증서가 기술적으로 유효하지 않게 된다.
+- 빈 Issuer DN 을 가진 인증서를 사용하는 경우 앱이 중단될 위험이 있다. 이를 방지하려면 SelfSigned 인증서의 subject 를 설정해야 한다. 이는 SelfSigned 발급자가 발행할 cert-manager `Certificate` 객체에 `spec.subject` 를 설정하여 수행할 수 있다.
+- 버전 1.3 부터 ​​cert-manager 는 Issuer DN 이 비어 있는 SelfSigned Issuer 가 인증서를 생성하고 있음을 감지하면 `BadConfig` 유형의 Kubernetes 경고 이벤트를 내보낸다.
