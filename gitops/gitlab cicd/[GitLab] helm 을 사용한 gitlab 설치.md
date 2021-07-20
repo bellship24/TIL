@@ -217,7 +217,7 @@ metadata:
   namespace: cicd
 spec:
   isCA: true
-  commonName: gitlab.lab.com
+  commonName: '*.mylab.com'
   secretName: lab-gitlab
   issuerRef:
     name: selfsigned-issuer
@@ -371,7 +371,7 @@ gitlab-webservice-default   <none>   gitlab.lab.com     10.0.0.216   80, 443   7
 
 gitlab 접근
 
-![](/.uploads/2021-06-15-01-30-28.png)
+![](/.uploads/2021-07-20-19-43-02.png)
 
 minio 접근
 
