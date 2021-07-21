@@ -1,12 +1,9 @@
 **목차**
 
-- [1. 전제](#1-전제)
-- [2. helm 으로 metallb 설치](#2-helm-으로-metallb-설치)
-- [3. LoadBalancer 타입 SVC 테스트](#3-loadbalancer-타입-svc-테스트)
-
-**요약**
-
-helm 으로 metallb 를 설치하고 LoadBalancer 타입의 SVC 가 잘 작동하는 지 확인해보자.
+- [1. 요약](#1-요약)
+- [2. 전제](#2-전제)
+- [3. helm 으로 metallb 설치](#3-helm-으로-metallb-설치)
+- [4. LoadBalancer 타입 SVC 테스트](#4-loadbalancer-타입-svc-테스트)
 
 **참고**
 
@@ -14,13 +11,17 @@ helm 으로 metallb 를 설치하고 LoadBalancer 타입의 SVC 가 잘 작동�
 
 ---
 
-# 1. 전제
+# 1. 요약
+
+helm 으로 metallb 를 설치하고 LoadBalancer 타입의 SVC 가 잘 작동하는 지 확인해보자.
+
+# 2. 전제
 
 - k8s 클러스터
 - lb 로 사용할 IP
 - helm v3+
 
-# 2. helm 으로 metallb 설치
+# 3. helm 으로 metallb 설치
 
 metallb 의 helm repo 추가
 
@@ -97,7 +98,7 @@ $ k logs -n metallb metallb-controller-748756655f-n7hxn
 
 - 컨트롤러가 정상적으로 시작됐고 여러 SVC 들에 대한 로드밸런싱 정책을 업데이트하는 것을 확인할 수 있다.
 
-# 3. LoadBalancer 타입 SVC 테스트
+# 4. LoadBalancer 타입 SVC 테스트
 
 ``` bash
 $ cat <<EOF > test-lb-nginx.yaml
