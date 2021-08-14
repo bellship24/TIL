@@ -1,26 +1,33 @@
 **목차**
 
-- [1. 전제](#1-전제)
-- [2. helm 설치](#2-helm-설치)
-- [3. helm chart repo 추가](#3-helm-chart-repo-추가)
-- [4. prometheus 배포](#4-prometheus-배포)
-- [5. grafana 배포](#5-grafana-배포)
+- [1. 요약](#1-요약)
+- [2. 전제](#2-전제)
+- [3. helm 설치 (옵션)](#3-helm-설치-옵션)
+- [4. helm chart repo 추가](#4-helm-chart-repo-추가)
+- [5. prometheus 배포](#5-prometheus-배포)
+- [6. grafana 배포](#6-grafana-배포)
+- [7. exporter](#7-exporter)
 
 ---
 
-# 1. 전제
+# 1. 요약
+
+kubernetes 의 공식적인 메트릭 모니터링, 알람 오픈소스는 prometheus + grafana 로 알고 있다. 이를 helm 으로 배포하고 노드, 파드 등 컴포넌트들의 메트릭 정보 대시보드와 알람 기능을 검증해보자.
+
+# 2. 전제
 
 - helm v3+
 - storageClass
-- nginx-ingress-controller
+- nginx-ingress-controller (LoadBalancer)
 
-# 2. helm 설치
+# 3. helm 설치 (옵션)
 
 ``` bash
-
+curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+helm version
 ```
 
-# 3. helm chart repo 추가
+# 4. helm chart repo 추가
 
 ``` bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -35,7 +42,7 @@ kube-state-metrics              https://kubernetes.github.io/kube-state-metrics
 grafana                         https://grafana.github.io/helm-charts
 ```
 
-# 4. prometheus 배포
+# 5. prometheus 배포
 
 chart 다운로드
 
@@ -52,9 +59,9 @@ server:
   ingress:
     enabled: true
     annotations:
-      # certmanager.k8s.io/issuer: gitlab-issuer
       kubernetes.io/ingress.class: nginx
       kubernetes.io/ingress.provider: nginx
+      # certmanager.k8s.io/issuer: gitlab-issuer
       # kubernetes.io/tls-acme: "true"
       # nginx.ingress.kubernetes.io/proxy-body-size: "0"
       # nginx.ingress.kubernetes.io/proxy-buffering: "off"
@@ -65,10 +72,10 @@ server:
       # nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     hosts:
     - prometheus.ailab.com
-    tls:
-    - secretName:
-      hosts:
-      - prometheus.ailab.com
+    # tls:
+    # - secretName:
+    #   hosts:
+    #   - prometheus.ailab.com
 
 ## Prometheus data retention period (default if not specified is 15 days)
 ##
@@ -142,7 +149,7 @@ kube_namespace_created 로 네임스페이스 생성 내역을 그래프로 보�
 
 ![](/.uploads/2021-08-14-01-26-13.png)
 
-# 5. grafana 배포
+# 6. grafana 배포
 
 chart 다운로드
 
@@ -195,7 +202,6 @@ grafana/grafana \
 ``` bash
 $ kubens monitoring
 
-
 $ k get all -l=app.kubernetes.io/instance=grafana
 NAME                          READY   STATUS    RESTARTS   AGE
 pod/grafana-7f8458bcb-bxlcf   1/1     Running   0          50m
@@ -208,7 +214,6 @@ deployment.apps/grafana   1/1     1            1           50m
 
 NAME                                DESIRED   CURRENT   READY   AGE
 replicaset.apps/grafana-7f8458bcb   1         1         1       50m
-
 
 $ k get ing -l=app.kubernetes.io/instance=grafana
 NAME      CLASS    HOSTS               ADDRESS          PORTS   AGE
@@ -228,3 +233,37 @@ Web UI 접근 확인
 ![](/.uploads/2021-08-14-03-01-55.png)
 
 패스워드 변경하기
+
+![](/.uploads/2021-08-15-01-28-46.png)
+
+- 좌측 하단에 유저 아이콘 클릭 / `Change password` 클릭 / 비밀번호 변경
+
+skin 을 light 모드로 변경
+
+![](/.uploads/2021-08-15-01-39-43.png)
+
+- 좌측 하단에 유저 아이콘 클릭 / `Preferences` 클릭 / `UI Theme` 을 `Light` 로 변경
+
+Datasource 로 Prometheus 연결
+
+![](/.uploads/2021-08-15-01-40-51.png)
+
+- 좌측 톱니바퀴 클릭 / `Data sources` 클릭 / `Add data source` 클릭
+
+![](/.uploads/2021-08-15-01-41-54.png)
+
+- `Prometheus` 클릭
+
+![](/.uploads/2021-08-15-01-43-34.png)
+
+- `HTTP` 밑에 `URL` 에 앞서 구축한 prometheus 의 URL 을 입력하고 `Save & test` 클릭
+
+# 7. exporter
+
+exporter 란?
+
+- prometheus 가 metric 을 수집할 수 있도록 metric 을 web server 로 제공해주는 컴포넌트
+
+exporter 의 종류
+
+- node exporter : 인스턴스의 시스템, 커널 정보를 수집
