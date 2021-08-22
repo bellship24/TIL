@@ -99,9 +99,7 @@ restrict 10.1.1.0 mask 255.255.255.0 nomodify notrap
 $ sudo systemctl restart ntp
 ```
 
-- 사내 NTP 사용, HIC망 연구소 IP 접근 허용 ntp 서버 설정
-
-## ntpq동기화 확인
+## ntp 동기화 확인
 
 ``` bash
 $ ntpq -pn
@@ -114,6 +112,39 @@ remote           refid           st t when poll reach delay   offset  jitter
 
 - 정확한 동기화를 위해 실제 동기화 되기까지 5분 이상 소요될 수 있다.
 - 동기화가 되면 remote 필드의 ip 값 앞에 * 표시가 된다. + 는 secondary 이다.
+
+# 서버간에 ntp 동기화 하는 방법
+
+ntp 서버 노드에서 설정
+
+`/etc/ntp.conf`
+
+- 아래 설정 외에 `server`, `restrict` 를 모두 주석처리
+
+``` text
+restrict 10.231.130.0 mask 255.255.255.0 nomodify notrap
+server 127.127.1.0 # local clock
+```
+
+- local clock 을 별도의 ntp 서버로 설정해서 가져와도 됨
+
+ntp 클라이언트 노드에서 설정
+
+`/etc/ntp.conf`
+
+- 아래 설정 외에 `server`, `restrict` 를 모두 주석처리
+
+``` text
+server <ntp 서버 ip> iburst
+```
+
+ntp 재시작 및 동기화 확인(모든 노드)
+
+``` bash
+sudo systemctl restart ntpd
+sudo systemctl status ntpd
+ntpq -pn
+```
 
 ## 기타
 
