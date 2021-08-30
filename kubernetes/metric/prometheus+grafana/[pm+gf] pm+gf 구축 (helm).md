@@ -6,13 +6,15 @@
 - [4. helm chart repo 추가](#4-helm-chart-repo-추가)
 - [5. prometheus 배포](#5-prometheus-배포)
 - [6. grafana 배포](#6-grafana-배포)
-- [7. exporter](#7-exporter)
+- [7. grafana 대시보드 추가하여 시각화 하기](#7-grafana-대시보드-추가하여-시각화-하기)
+- [8. kube-state-metrics](#8-kube-state-metrics)
+- [9. exporter](#9-exporter)
 
 ---
 
 # 1. 요약
 
-kubernetes 의 공식적인 메트릭 모니터링, 알람 오픈소스는 prometheus + grafana 로 알고 있다. 이를 helm 으로 배포하고 노드, 파드 등 컴포넌트들의 메트릭 정보 대시보드와 알람 기능을 검증해보자.
+> kubernetes 의 공식적인 메트릭 모니터링, 알람 오픈소스는 prometheus + grafana 로 알고 있다. 이를 helm 으로 배포하고 노드, 파드 등 컴포넌트들의 메트릭 정보 대시보드와 알람 기능을 검증해보자.
 
 # 2. 전제
 
@@ -182,8 +184,15 @@ ingress:
 #   - secretName:
 #     hosts:
 #     - grafana.ailab.com
+
+hostAliases:
+- ip: "10.231.238.232"
+  hostnames:
+  - "prometheus.ailab.com"  
 EOF
 ```
+
+- `hostAliases` 는 상황에 맞게 사용하자. 여기서는 프로메테우스와 그라파나를 nginx-ingress controller 를 LoadBalancer 로 사용해 private VIP 로 ingress 를 받게 했다. 그러므로 도메인 해석을 위해 host alias 를 추가한 것이다.
 
 release 배포
 
@@ -224,7 +233,7 @@ grafana   <none>   grafana.ailab.com   10.0.0.232   80      52m
 
 ``` bash
 $ kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
-dkZRUXMBQf3z9vhBus1W6e8yXUdf8d3gMaEQtxhV
+kaPsykbGvezZ2vfa1my5Fn1aUt0KCpfLsctCe342
 ```
 
 Web UI 접근 확인
@@ -257,8 +266,26 @@ Datasource 로 Prometheus 연결
 ![](/.uploads/2021-08-15-01-43-34.png)
 
 - `HTTP` 밑에 `URL` 에 앞서 구축한 prometheus 의 URL 을 입력하고 `Save & test` 클릭
+- `Data source is working` 이라는 메시지가 뜨면 성공
 
-# 7. exporter
+# 7. grafana 대시보드 추가하여 시각화 하기
+
+![](/.uploads/2021-08-27-16-28-55.png)
+
+- grafana 접속 / 좌측 메뉴에서 `Dashboard` 의 `Manage` 클릭 / 우측 파란색 버튼 `Import` 클릭
+
+![](/.uploads/2021-08-27-16-31-46.png)
+![](/.uploads/2021-08-27-16-32-39.png)
+
+- 추가하고 싶은 대시보드 정보를 서핑하여 템플릿 ID 나 URL 를 입력하고 `Load` 클릭
+- 추천 대시보드 : 9797 (cluster 전체 현황 파악), 11074 (화려해서 보고용으로 좋음)
+
+![](/.uploads/2021-08-27-16-33-15.png)
+![](/.uploads/2021-08-27-16-38-02.png)
+
+# 8. kube-state-metrics
+
+# 9. exporter
 
 exporter 란?
 
