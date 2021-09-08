@@ -184,9 +184,10 @@ nfs-client (default)   cluster.local/nfs-provisioner-nfs-subdir-external-provisi
 
 # 7. pvc 생성하여 dynamic provisioning 테스트
 
-`sc-test-pvc.yml` 작성
+PVC 생성
 
 ```yaml
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -198,11 +199,15 @@ spec:
   resources:
     requests:
       storage: 1Gi
+EOF
 ```
 
-`sc-test-po.yml` 작성
+- 생성한 스토리지 클래스를 사용하는 PVC 생성
+
+Pod 생성
 
 ```yaml
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Pod
 metadata:
@@ -221,14 +226,10 @@ spec:
   - name: sc-vol-test
     persistentVolumeClaim:
       claimName: sc-test-pvc
+EOF
 ```
 
-컴포넌트 생성
-
-``` bash
-$ k create -f sc-test-pvc.yaml
-$ k create -f sc-test-po.yaml
-```
+- 앞서 생성한 PVC 를 사용하는 Pod 를 생성
 
 bound 확인
 
@@ -241,4 +242,11 @@ sc-test-po   1/1     Running   0          2m48s
 $ k get pvc
 NAME          STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
 sc-test-pvc   Bound    pvc-830dc94e-0d31-4c86-bda8-b7e322da67d7   1Gi        RWX            nfs-client     2m55s
+```
+
+테스트 리소스 삭제
+
+``` bash
+k delete po sc-test-po
+k delete pvc sc-test-pvc
 ```
