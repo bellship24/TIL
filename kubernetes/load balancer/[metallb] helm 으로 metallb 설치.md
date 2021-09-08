@@ -27,19 +27,21 @@ metallb 의 helm repo 추가
 
 ``` bash
 helm repo add metallb https://metallb.github.io/metallb
+helm repo update
+helm repo ls
 ```
 
 helm chart 다운로드
 
 ``` bash
-helm fetch metallb/metallb
-tar -xf metallb-0.10.2.tgz
+helm fetch metallb/metallb --untar
 cd metallb
 ```
 
-`values.yaml` 수정
+`override-values.yaml` 작성
 
 ``` bash
+cat <<EOF > override-values.yaml
 configInline: 
   address-pools:
   - name: default
@@ -47,6 +49,7 @@ configInline:
     addresses:
     - 10.0.0.232/32
     - 10.0.0.249/32
+EOF
 ```
 
 - lb 로 쓰일 ip 주소가 특정한 ip 하나라고 해도 서브넷을 32 로 줘야한다.
@@ -54,7 +57,10 @@ configInline:
 release 배포
 
 ``` bash
-helm upgrade --install metallb metallb/metallb -f values.yaml -n metallb --create-namespace
+helm upgrade --install \
+  metallb metallb/metallb \
+  -f override-values.yaml \
+  -n metallb --create-namespace
 ```
 
 리소스 배포 확인
@@ -100,8 +106,10 @@ $ k logs -n metallb metallb-controller-748756655f-n7hxn
 
 # 4. LoadBalancer 타입 SVC 테스트
 
+테스트용 pod 와 svc 생성
+
 ``` bash
-$ cat <<EOF > test-lb-nginx.yaml
+$ cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Pod
 metadata:
@@ -127,16 +135,18 @@ spec:
       targetPort: 80
   type: LoadBalancer
 EOF
+```
 
+생성 확인
 
-$ k create -f test-lb-nginx.yaml
-pod/test-lb-nginx-pod created
-service/test-lb-nginx-svc created
-
+``` bash
 $ k get svc -l app=test-lb-nginx
 NAME                TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)        AGE
 test-lb-nginx-svc   LoadBalancer   10.106.13.28   10.0.0.232   80:30104/TCP   19s
 
+LB 로 접근 테스트
+
+``` bash
 ### 마스터 m1 노드에서 테스트
 $ curl 10.0.0.232
 <!DOCTYPE html>
@@ -170,10 +180,8 @@ pc 에서도 로드밸런서로 접근 확인
 
 ![](/.uploads/2021-07-15-22-35-44.png)
 
-테스트한 리소스 삭제
+테스트 리소스 삭제
 
 ``` bash
-$ k delete -f test-lb-nginx.yaml
-pod "test-lb-nginx-pod" deleted
-service "test-lb-nginx-svc" deleted
+$ k delete pod/test-lb-nginx-pod service/test-lb-nginx-svc
 ```
