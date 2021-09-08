@@ -28,19 +28,22 @@
     - [6.3.1. haproxy stats 대시보드](#631-haproxy-stats-대시보드)
     - [6.3.2. netcat 으로 tcp 통신 확인](#632-netcat-으로-tcp-통신-확인)
 - [7. ha k8s 클러스터 구성](#7-ha-k8s-클러스터-구성)
-- [8. HA 기능 테스트](#8-ha-기능-테스트)
-- [9. HA k8s 장애 테스트](#9-ha-k8s-장애-테스트)
-  - [9.1. 장애 테스트 시나리오](#91-장애-테스트-시나리오)
-  - [9.2. 노드 1 개 장애 case](#92-노드-1-개-장애-case)
-  - [9.3. 노드 2 개 장애 case](#93-노드-2-개-장애-case)
-  - [9.4. 노드 3 개 장애 case](#94-노드-3-개-장애-case)
-- [10. HA k8s 장애 시에 복구 방법](#10-ha-k8s-장애-시에-복구-방법)
-  - [10.1. etcd 백업](#101-etcd-백업)
-  - [10.2. etcd 백업 확인](#102-etcd-백업-확인)
-  - [10.3. 테스트를 위해 백업 이후에 워크로드 생성](#103-테스트를-위해-백업-이후에-워크로드-생성)
-  - [10.4. etcd 복원 및 데이터 볼륨 생성](#104-etcd-복원-및-데이터-볼륨-생성)
-  - [10.5. etcd static pod 설정 변경](#105-etcd-static-pod-설정-변경)
-  - [10.6. 복원 완료 후 상태 확인](#106-복원-완료-후-상태-확인)
+- [8. 마스터 노드들에서 스케줄링 허용하기 (옵션)](#8-마스터-노드들에서-스케줄링-허용하기-옵션)
+  - [8.1. taint 확인](#81-taint-확인)
+  - [8.2. 마스터 노드들에서 NoSchedule Taint 삭제](#82-마스터-노드들에서-noschedule-taint-삭제)
+- [9. HA 기능 테스트](#9-ha-기능-테스트)
+- [10. HA k8s 장애 테스트](#10-ha-k8s-장애-테스트)
+  - [10.1. 장애 테스트 시나리오](#101-장애-테스트-시나리오)
+  - [10.2. 노드 1 개 장애 case](#102-노드-1-개-장애-case)
+  - [10.3. 노드 2 개 장애 case](#103-노드-2-개-장애-case)
+  - [10.4. 노드 3 개 장애 case](#104-노드-3-개-장애-case)
+- [11. HA k8s 장애 시에 복구 방법](#11-ha-k8s-장애-시에-복구-방법)
+  - [11.1. etcd 백업](#111-etcd-백업)
+  - [11.2. etcd 백업 확인](#112-etcd-백업-확인)
+  - [11.3. 테스트를 위해 백업 이후에 워크로드 생성](#113-테스트를-위해-백업-이후에-워크로드-생성)
+  - [11.4. etcd 복원 및 데이터 볼륨 생성](#114-etcd-복원-및-데이터-볼륨-생성)
+  - [11.5. etcd static pod 설정 변경](#115-etcd-static-pod-설정-변경)
+  - [11.6. 복원 완료 후 상태 확인](#116-복원-완료-후-상태-확인)
 
 **참고**
 
@@ -676,13 +679,35 @@ HA 구성 완료 확인
 ``` bash
 $ k get no
 NAME                  STATUS   ROLES                  AGE    VERSION
-dtlab-dev-k8s-pjb-1   Ready    control-plane,master   3h6m   v1.20.7
-dtlab-dev-k8s-pjb-2   Ready    control-plane,master   176m   v1.20.7
-dtlab-dev-k8s-pjb-3   Ready    control-plane,master   149m   v1.20.7
-dtlab-dev-k8s-pjb-4   Ready    <none>                 89m    v1.20.7
+dev-k8s-pjb-1   Ready    control-plane,master   3h6m   v1.20.7
+dev-k8s-pjb-2   Ready    control-plane,master   176m   v1.20.7
+dev-k8s-pjb-3   Ready    control-plane,master   149m   v1.20.7
+dev-k8s-pjb-4   Ready    <none>                 89m    v1.20.7
 ```
 
-# 8. HA 기능 테스트
+# 8. 마스터 노드들에서 스케줄링 허용하기 (옵션)
+
+## 8.1. taint 확인
+
+```bash
+### 기존 taint 확인
+$ kubectl describe node <node name>
+...
+Taints:             node-role.kubernetes.io/etcd=true:NoExecute
+										node-role.kubernetes.io/controlplane=true:NoSchedule
+```
+
+## 8.2. 마스터 노드들에서 NoSchedule Taint 삭제
+
+```bash
+# 아래 taint 에 알맞게 사용
+
+kubectl taint nodes --all node-role.kubernetes.io/etcd-
+kubectl taint nodes --all node-role.kubernetes.io/controlplane-
+kubectl taint nodes --all node-role.kubernetes.io/master-
+```
+
+# 9. HA 기능 테스트
 
 ``` bash
 ### nginx deploy 배포
@@ -748,15 +773,15 @@ Commercial support is available at
 </html>
 ```
 
-# 9. HA k8s 장애 테스트
+# 10. HA k8s 장애 테스트
 
-## 9.1. 장애 테스트 시나리오
+## 10.1. 장애 테스트 시나리오
 
 - 노드 1 개 장애 case
 - 노드 2 개 장애 case
 - 노드 3 개 장애 case
 
-## 9.2. 노드 1 개 장애 case
+## 10.2. 노드 1 개 장애 case
 
 - 결론: 3 개의 컨트롤플레인 노드로 만든 HA k8s 클러스터는 fault-tolerance 가 1 이므로 노드 1개가 장애여도 클러스터는 유지된다. 단, 장애난 노드에 워크로드를 생성했었다면, 다른 노드로 리스케줄링 된다.
 
@@ -844,7 +869,7 @@ dtlab-dev-k8s-pjb-4   Ready    <none>                 2d7h   v1.20.7
 
 - m1 이 다시 Ready 상태가 된 것을 확인할 수 있다.
 
-## 9.3. 노드 2 개 장애 case
+## 10.3. 노드 2 개 장애 case
 
 - 결론: 3 개의 컨트롤 플레인 노드로 만든 HA k8s 클러스터는 fault-tolerance 가 1 이므로 노드 2 개가 장애이면 클러스터는 장애가 난다. 이럴 경우, 보통 기존에 장애난 컨트롤 플레인 노드들이 정상적으로 올라오면 해결된다. 하지만, 디스크 장애나 노드를 복구할 수 없는 상태가 왔을 때는 새로운 노드에 k8s 컨트롤 플레인을 재설치하고 etcd 데이터 백업본을 복원하는 방법이 있다. 예를 들면, 밑에 작성한 [9. HA k8s 장애 시에 복구 방법](#9-ha-k8s-장애-시에-복구-방법) 등을 참고하여 운영을 재기동할 수 있다.
 
@@ -925,7 +950,7 @@ nginx-after-bkp   4/4     4            4           2d1h
 
 - 클러스터 장애가 있었지만 실행 중이던 파드들은 아직 살아있는 것을 확인할 수 있다.
 
-## 9.4. 노드 3 개 장애 case
+## 10.4. 노드 3 개 장애 case
 
 - 결론: 3 개의 컨트롤 플레인 노드로 만든 HA k8s 클러스터는 fault-tolerance 가 1 이므로 노드 2 개가 장애이면 클러스터는 장애가 난다. 이럴 경우, 보통 기존에 장애난 컨트롤 플레인 노드들이 정상적으로 올라오면 해결된다. 하지만, 디스크 장애나 노드를 복구할 수 없는 상태가 왔을 때는 새로운 노드에 k8s 컨트롤 플레인을 재설치하고 etcd 데이터 백업본을 복원하는 방법이 있다. 예를 들면, 밑에 작성한 [9. HA k8s 장애 시에 복구 방법](#9-ha-k8s-장애-시에-복구-방법) 등을 참고하여 운영을 재기동할 수 있다.
 
@@ -1000,17 +1025,17 @@ nginx-after-bkp   4/4     4            4           2d1h
 
 - 클러스터 장애가 있었지만 실행 중이던 파드들은 아직 살아있는 것을 확인할 수 있다.
 
-# 10. HA k8s 장애 시에 복구 방법
+# 11. HA k8s 장애 시에 복구 방법
 
 - k8s 복구를 위해 etcd 백업 및 복구 방법을 사용할 것이다. 자세한 방법은 [여기](https://github.com/bellship24/study-k8s/blob/main/etc/etcd%20%EB%B0%B1%EC%97%85%EA%B3%BC%20%EB%B3%B5%EC%9B%90%20%EB%B0%A9%EB%B2%95.md) 에 정리해놨으니 참고하자.
 
-## 10.1. etcd 백업
+## 11.1. etcd 백업
 
 ``` bash
 $ sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key snapshot save /home/myid/etcd-bkp-20210611.db
 ```
 
-## 10.2. etcd 백업 확인
+## 11.2. etcd 백업 확인
 
 ``` bash
 $ sudo ETCDCTL_API=3 etcdctl snapshot status /home/myid/etcd-bkp-20210611.db \
@@ -1022,7 +1047,7 @@ $ sudo ETCDCTL_API=3 etcdctl snapshot status /home/myid/etcd-bkp-20210611.db \
 +----------+----------+------------+------------+
 ```
 
-## 10.3. 테스트를 위해 백업 이후에 워크로드 생성
+## 11.3. 테스트를 위해 백업 이후에 워크로드 생성
 
 ``` bash
 $ k create deploy nginx-after-bkp --replicas=4 --image=nginx
@@ -1040,7 +1065,7 @@ nginx-after-bkp-798567d8b9-qtnqm   1/1     Running   0          65s   10.42.0.1 
 nginx-after-bkp-798567d8b9-wqq4b   1/1     Running   0          65s   10.40.0.2   dtlab-dev-k8s-pjb-3   <none>           <none>
 ```
 
-## 10.4. etcd 복원 및 데이터 볼륨 생성
+## 11.4. etcd 복원 및 데이터 볼륨 생성
 
 - `etcdctl snapshot restore <etcd 백업본 경로>` 로 etcd 백업 파일을 복원한다.
 - `--data-dir` 인자를 통해 별도 폴더에 복원 및 앞으로 etcd 에서 사용할 데이터 볼륨을 만들어주자.
@@ -1051,7 +1076,7 @@ $ ETCDCTL_API=3 etcdctl  --data-dir /var/lib/etcd-from-backup \
 
 ```
 
-## 10.5. etcd static pod 설정 변경
+## 11.5. etcd static pod 설정 변경
 
 - 이제 etcd 에 대한 파드 설정을 바꿔주자. 보통 k8s 클러스터를 구축할 때 `kubeadm` 을 이용한다. 그러면, 다른 kube-system 컴포넌트들과 마찬가지로 etcd 도 static pod 로 마스터 노드들에 배포 된다. 그렇기 때문에 etcd 의 설정은 `/etc/kubernetes/manifests/etcd.yaml` 파일을 수정해줘야 한다. 바꿔야할 부분은 `--data-dir` 과 `volumes, containers[0].volumeMounts` 부분이다.
 
@@ -1075,7 +1100,7 @@ volumes:
     ...
 ```
 
-## 10.6. 복원 완료 후 상태 확인
+## 11.6. 복원 완료 후 상태 확인
 
 - 설정이 끝났으면 배포 상태를 확인해보자. 먼저 컨테이너를 확인해보자. 해당노드에서 아래와 같이 확인할 수 있다.
 
