@@ -5,6 +5,7 @@
   - [2.1. SelfSigned Issuer 배포하는 방법](#21-selfsigned-issuer-배포하는-방법)
   - [2.2. CA Issuer Bootstrap](#22-ca-issuer-bootstrap)
   - [2.3. 주의 사항](#23-주의-사항)
+- [3. 생성한 인증서를 파일로 decode 하는 방법](#3-생성한-인증서를-파일로-decode-하는-방법)
 
 **참고**
 
@@ -117,3 +118,11 @@ spec:
 - 그러나 자체 서명된 인증서에는 기본적으로 설정된 subject DN 이 없다. 인증서의 subject DN 을 수동으로 설정하지 않으면 issuer DN 이 비어 있고 인증서가 기술적으로 유효하지 않게 된다.
 - 빈 Issuer DN 을 가진 인증서를 사용하는 경우 앱이 중단될 위험이 있다. 이를 방지하려면 SelfSigned 인증서의 subject 를 설정해야 한다. 이는 SelfSigned 발급자가 발행할 cert-manager `Certificate` 객체에 `spec.subject` 를 설정하여 수행할 수 있다.
 - 버전 1.3 부터 ​​cert-manager 는 Issuer DN 이 비어 있는 SelfSigned Issuer 가 인증서를 생성하고 있음을 감지하면 `BadConfig` 유형의 Kubernetes 경고 이벤트를 내보낸다.
+
+# 3. 생성한 인증서를 파일로 decode 하는 방법
+
+``` bash
+k get secret ainswer-wildcard-tls -o jsonpath='{.data.ca\.crt}' | base64 -d > ca.crt
+k get secret ainswer-wildcard-tls -o jsonpath='{.data.tls\.crt}' | base64 -d > tls.crt
+k get secret ainswer-wildcard-tls -o jsonpath='{.data.tls\.key}' | base64 -d > tls.key
+```
