@@ -190,6 +190,13 @@ helm repo add gitlab https://charts.gitlab.io/
 helm repo update  
 ```
 
+gitlab helm chart 를 fetch
+
+``` bash
+helm fetch gitlab/gitlab --untar
+cd gitlab
+```
+
 ## 3.2. self-signed 인증서 생성
 
 - 공인 IP 와 도메인네임이 없을 때는 self-signed CA 를 쓰면 된다.
@@ -198,6 +205,7 @@ helm repo update
 `gitlab-self-signed.yaml`
 
 ``` yaml
+cat <<EOF > gitlab-self-signed.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -223,12 +231,17 @@ spec:
     name: selfsigned-issuer
     kind: ClusterIssuer
     group: cert-manager.io
+EOF
 ```
 
 - 작성한 매니페스트로 리소스를 만들자. commonName, secretName 을 잘 정해주자.
+- namespace 등을 잘 성절해서 사용하자
 
 ``` bash
-k apply -f gitlab-self-signed.yaml
+$ k apply -f gitlab-self-signed.yaml
+namespace/cicd created
+clusterissuer.cert-manager.io/selfsigned-issuer created
+certificate.cert-manager.io/gitlab-wildcard-tls created
 ```
 
 ## 3.3. override-values.yaml 작성
