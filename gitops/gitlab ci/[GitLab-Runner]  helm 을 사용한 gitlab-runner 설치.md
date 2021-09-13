@@ -9,13 +9,15 @@
 - [1. 전제](#1-전제)
 - [2. 환경](#2-환경)
 - [3. helm 으로 gitlab runner 설치](#3-helm-으로-gitlab-runner-설치)
-  - [3.1. runner 를 연동할 gitlab repo. 생성 및 token 확보](#31-runner-를-연동할-gitlab-repo-생성-및-token-확보)
-  - [3.2. gitlab 인스턴스 접근 위한 custom 인증서 명시](#32-gitlab-인스턴스-접근-위한-custom-인증서-명시)
-  - [3.3. gitlab 인스턴스 접근 위한 self-signed 인증서 옵션](#33-gitlab-인스턴스-접근-위한-self-signed-인증서-옵션)
-  - [3.4. gitlab helm repo 추가](#34-gitlab-helm-repo-추가)
-  - [3.5. gitlab-runner 헬름 차트 fetch 및 압축 해제](#35-gitlab-runner-헬름-차트-fetch-및-압축-해제)
+  - [3.1. gitlab helm repo 추가](#31-gitlab-helm-repo-추가)
+  - [3.2. gitlab-runner 헬름 차트 fetch 및 압축 해제](#32-gitlab-runner-헬름-차트-fetch-및-압축-해제)
+  - [3.3. runner 를 연동할 gitlab repo. 생성 및 token 확보](#33-runner-를-연동할-gitlab-repo-생성-및-token-확보)
+    - [3.3.1. specific runner 사용 시에 token 확보 방법](#331-specific-runner-사용-시에-token-확보-방법)
+    - [3.3.2. shared runner 사용 시에 token 확보 방법](#332-shared-runner-사용-시에-token-확보-방법)
+  - [3.4. gitlab 인스턴스 접근 위한 custom 인증서 명시](#34-gitlab-인스턴스-접근-위한-custom-인증서-명시)
+  - [3.5. gitlab 인스턴스 접근 위한 self-signed 인증서 옵션](#35-gitlab-인스턴스-접근-위한-self-signed-인증서-옵션)
   - [3.6. chart 수정](#36-chart-수정)
-  - [3.7. values.yaml 수정](#37-valuesyaml-수정)
+  - [3.7. override-values.yaml 작성](#37-override-valuesyaml-작성)
   - [3.8. 수정한 chart 기반 gitlab-runner 인스턴스 생성](#38-수정한-chart-기반-gitlab-runner-인스턴스-생성)
   - [3.9. 워크로드 상태 확인](#39-워크로드-상태-확인)
 - [4. runner 를 사용해 k8s executor 로 CI pipeline 만들기](#4-runner-를-사용해-k8s-executor-로-ci-pipeline-만들기)
@@ -39,10 +41,14 @@
     - [6.1.13. 해결 5-3 : 컨테이너로 runner 등록하기 + 이미지를 helm 에서 사용하는 alpine 으로 변경 (ㅁ)](#6113-해결-5-3--컨테이너로-runner-등록하기--이미지를-helm-에서-사용하는-alpine-으로-변경-ㅁ)
     - [6.1.14. 해결 5-4 : 컨테이너로 runner 등록하기 + 이미지를 helm 에서 사용하는 alpine 으로 변경 + 권한을 변경 (runAsUser: 100, runAsGroup: 65533, fsGroup: 65533) (ㅁ)](#6114-해결-5-4--컨테이너로-runner-등록하기--이미지를-helm-에서-사용하는-alpine-으로-변경--권한을-변경-runasuser-100-runasgroup-65533-fsgroup-65533-ㅁ)
     - [6.1.15. 해결 6 : gitlab-runner helm 을 hostNetwork 로 돌리기 (x)](#6115-해결-6--gitlab-runner-helm-을-hostnetwork-로-돌리기-x)
-  - [CI pod 안에서 docker 사용 불가 이슈](#ci-pod-안에서-docker-사용-불가-이슈)
-    - [현상](#현상)
-    - [분석](#분석)
-    - [해결 1 (o) : config.toml 수정하여 k8s executor 에 privileged 및 cert 관련 볼륨 마운트](#해결-1-o--configtoml-수정하여-k8s-executor-에-privileged-및-cert-관련-볼륨-마운트)
+  - [6.2. runner 실행 불가 이슈 (serviceAccount cannot create resource "secrets")](#62-runner-실행-불가-이슈-serviceaccount-cannot-create-resource-secrets)
+    - [6.2.1. 현상](#621-현상)
+    - [6.2.2. 분석](#622-분석)
+    - [6.2.3. 해결 1 (o) : override-values.yaml 에 `rbac.create: true` 추가](#623-해결-1-o--override-valuesyaml-에-rbaccreate-true-추가)
+  - [6.3. CI pod 안에서 docker 사용 불가 이슈](#63-ci-pod-안에서-docker-사용-불가-이슈)
+    - [6.3.1. 현상](#631-현상)
+    - [6.3.2. 분석](#632-분석)
+    - [6.3.3. 해결 1 (o) : config.toml 수정하여 k8s executor 에 privileged 및 cert 관련 볼륨 마운트](#633-해결-1-o--configtoml-수정하여-k8s-executor-에-privileged-및-cert-관련-볼륨-마운트)
 
 **참고**
 
@@ -74,9 +80,30 @@
 
 # 3. helm 으로 gitlab runner 설치
 
-## 3.1. runner 를 연동할 gitlab repo. 생성 및 token 확보
+## 3.1. gitlab helm repo 추가
 
-- helm 으로 gitlab runner 를 설치할 때, 해당 runner 를 등록할 git repo. 를 token 으로 명시해야 한다. 그러므로 우선, 특정한 git repo. 를 만들어야 한다.
+``` bash
+helm repo add gitlab https://charts.gitlab.io
+helm repo update
+helm repo ls
+```
+
+## 3.2. gitlab-runner 헬름 차트 fetch 및 압축 해제
+
+- 이 글에서는 self-signed 인증서를 통해 helm 으로 구축된 gitlab 에 runner 를 붙일 것이다. 그러므로 앞으로 다룰 self-signed 인증서를 사용하기위한 추가 작업들이 필요하다. 기존 chart 설정으로는 한계가 있어 일부를 커스터마이징해야한다. 먼저, gitlab/gitlab-runner 헬름 차트를 fetch 해와 압축 해제한다.
+
+``` bash
+helm fetch gitlab/gitlab-runner --untar
+cd gitlab-runner
+```
+
+## 3.3. runner 를 연동할 gitlab repo. 생성 및 token 확보
+
+- helm 으로 gitlab runner 를 설치할 때, 해당 runner 를 등록할 token 이 필요하다.
+
+### 3.3.1. specific runner 사용 시에 token 확보 방법
+  
+- git repo. 를 token 으로 명시해야 한다. 그러므로 우선, 특정한 git repo. 를 만들어야 한다.
 - gitlab 접근 > New project 클릭 > create black project 클릭 > project name 등 입력 > create project 클릭
 
 ![](/.uploads/2021-06-21-13-06-59.png)
@@ -86,14 +113,20 @@
 
 ![](/.uploads/2021-06-21-13-11-17.png)
 
-## 3.2. gitlab 인스턴스 접근 위한 custom 인증서 명시
+### 3.3.2. shared runner 사용 시에 token 확보 방법
+
+![](/.uploads2/2021-09-11-00-19-58.png)
+
+- root 계정 로그인 -> 우측 상단에 `Admin Area` 몽키스페너 모양 클릭 -> `Overview` 에 `Runners` 클릭 -> 우측에 token 정보 복사
+
+## 3.4. gitlab 인스턴스 접근 위한 custom 인증서 명시
 
 secret 을 통한 custom 인증서 명시
 
 - `gitlab runner` helm chart 에는 gitlab 인스턴스에 접근하기 위해 gitlab 인증서를 k8s Secret 안에 넣고 /home/gitlab-runner/.gitlab-runner/certs 디렉토리 안에서 사용할 수 있다.
 - 이 secret 의 각 key 들의 이름은 해당 디렉토리의 각 파일 이름들로 쓰여져야 한다.
-- key/file 이름은 다음 형식을 지켜서 생성해야 한다. `<gitlab-hostname>.crt` (e.g. `gitlab.your-domain.com.crt`)
-- 만약, self-signed 인증서라면, 아래 [gitlab 인스턴스에 접근하기 위해 self-signed 인증서에 대한 옵션](#32-gitlab-인스턴스에-접근하기-위해-self-signed-인증서에-대한-옵션) 를 참고하자.
+- key(file) 이름은 다음 형식을 지켜서 생성해야 한다. `<gitlab-hostname>.crt` (e.g. `gitlab.your-domain.com.crt`)
+- 만약, self-signed 인증서라면, 아래 [gitlab 인스턴스에 접근하기 위해 self-signed 인증서에 대한 옵션](#33-gitlab-인스턴스에-접근하기-위해-self-signed-인증서에-대한-옵션) 를 참고하자.
 - 사용되는 hostname 은 반드시 인증서가 등록된 호스트 이름이어야 한다.
 - 만약, 인증서만 있을 때 secret 은 아래와 같이 만들면 된다.
 
@@ -110,7 +143,7 @@ k -n <NAMESPACE> create secret generic <SECRET_NAME> \
 certsSecretName: <SECRET_NAME>
 ```
 
-## 3.3. gitlab 인스턴스 접근 위한 self-signed 인증서 옵션
+## 3.5. gitlab 인스턴스 접근 위한 self-signed 인증서 옵션
 
 system 인증서를 읽음 (Default)
 
@@ -118,27 +151,12 @@ system 인증서를 읽음 (Default)
 
 custom 인증서 파일을 명시
 
-- gitlab 에 특정 인증서를 명시하며 runner 를 등록하기 위해 명령어 `gitlab-runner register --tlas-ca-file=/path` 를 써서 `tls-ca-file` 옵션을 사용할 수 있다. 혹은 `config.toml` 의 `[[runners]]` 부분에 명시할 수 있다. 이 파일은 runner 가 gitlab 서버에 접근하려할 때마다 사용한다.
+- gitlab 에 특정 인증서를 명시하며 runner 를 등록하기 위해 명령어 `gitlab-runner register --tls-ca-file=/path` 를 써서 `tls-ca-file` 옵션을 사용할 수 있다. 혹은 `config.toml` 의 `[[runners]]` 부분에 명시할 수 있다. 이 파일은 runner 가 gitlab 서버에 접근하려할 때마다 사용한다.
 
 주의 사항
 
-- 만약, gitlab 서버 인증서를 자체 CA 로 서명했다면, 서명된 gitlab 서버 인증서가 아니라 CA 인증서를 사용하라.
+- 만약, gitlab 서버 인증서를 자체 CA 로 서명했다면, 서명된 gitlab 서버 인증서가 아니라 CA 인증서를 사용해야 함을 주의하자.
 - 인증서를 업데이트 했다면, runner 를 재시작해라.
-
-## 3.4. gitlab helm repo 추가
-
-``` bash
-$ helm repo add gitlab https://charts.gitlab.io
-```
-
-## 3.5. gitlab-runner 헬름 차트 fetch 및 압축 해제
-
-- 이 글에서는 self-signed 인증서를 통해 helm 으로 구축된 gitlab 에 runner 를 붙일 것이다. 그러므로 앞서 봤듯이 self-signed 인증서를 사용하기위한 추가 작업들이 필요하다. 기존 chart 설정으로는 한계가 있어 일부를 커스터마이징해야한다. 먼저, gitlab/gitlab-runner 헬름 차트를 fetch 해와 압축 해제한다.
-
-``` bash
-$ helm fetch gitlab/gitlab-runner
-$ tar -xf gitlab-runner-0.29.0.tgz
-```
 
 ## 3.6. chart 수정
 
@@ -152,9 +170,7 @@ $ vi gitlab-runner/templates/deployment.yaml
 mountPath: /etc/gitlab-runner/certs/  #/home/gitlab-runner/.gitlab-runner/certs/
 ```
 
-## 3.7. values.yaml 수정
-
-- chart 외에도 values.yaml 을 수정하자.
+## 3.7. override-values.yaml 작성
 
 `runner-override-values.yaml`
 
@@ -184,10 +200,15 @@ securityContext:
 runners:
   config: |
     [[runners]]
-      name = "myrunners3"
+      name = "myrunners"
       url = "https://gitlab.mylab.com"
       token = "ngzTY4ehT3U63q5nhS_3"
       executor = "kubernetes"
+      [runners.kubernetes]
+        image= "docker:19.03.13"
+        [[runners.kubernetes.host_aliases]]
+          ip = "10.0.0.216"
+          hostnames = ["gitlab.mylab.com", "minio.mylab.com", "registry.mylab.com"]
 rbac:
   create: true
       # tls-ca-file = "/home/gitlab-runner/.gitlab-runner/certs/ca.crt"
@@ -206,8 +227,10 @@ rbac:
 
 ## 3.8. 수정한 chart 기반 gitlab-runner 인스턴스 생성
 
+- fetch 한 gitlab-runner chart 에서 수행
+
 ``` bash
-$ helm upgrade --install gitlab-runner ./gitlab-runner \
+$ helm upgrade --install gitlab-runner . \
   -n cicd --create-namespace \
   -f runner-override-values.yaml
 ```
@@ -780,9 +803,9 @@ runners:
 ``` bash
 $ helm uninstall -n cicd gitlab-runner
 $ k get po -n cicd -w
-$ helm upgrade --install gitlab-runner ./gitlab-runner \
+$ {helm upgrade --install gitlab-runner ./gitlab-runner \
   -n cicd --create-namespace \
-  -f runner-override-values2.yaml
+  -f runner-override-values2.yaml}
 ```
 
 ``` bash
@@ -1025,17 +1048,40 @@ ERROR: Registering runner... failed                 runner=ngzTY4eh status=could
 PANIC: Failed to register the runner. You may be having network problems.
 ```
 
-## CI pod 안에서 docker 사용 불가 이슈
+## 6.2. runner 실행 불가 이슈 (serviceAccount cannot create resource "secrets")
 
-### 현상
+### 6.2.1. 현상
+
+- `.gitlab-ci.yml` 에 따라 gitlab runner k8s executor 로 빌드 시에 아래와 같은 오류가 발생
+
+![](/.uploads2/2021-09-11-02-56-02.png)
+
+### 6.2.2. 분석
+
+- 에러 로그로 보아 사용하는 `default` 라는 `serviceAccount` 가 `Secret` 리소스를 생성하지 못해 이슈가 생겼다고 한다.
+
+### 6.2.3. 해결 1 (o) : override-values.yaml 에 `rbac.create: true` 추가
+
+- 이 문제를 해결하기 위해서는 아래와 같이 override-values.yaml 에 `rbac` 에 대한 `Create` 권한을 주면 된다.
+
+override-values.yaml
+
+``` yaml
+rbac:
+  create: true
+```
+
+## 6.3. CI pod 안에서 docker 사용 불가 이슈
+
+### 6.3.1. 현상
 
 - gitlab runner k8s executor 를 통해 .gitlab-ci.yml 을 실행할 때 파드 즉, 컨테이너로 실행되기 때문에 docker 명령어를 사용할 수 없다.
 
-### 분석
+### 6.3.2. 분석
 
 - dind, dood 등의 방법을 통해 docker 명령어를 사용할 수 있을 것으로 보인다.
 
-### 해결 1 (o) : config.toml 수정하여 k8s executor 에 privileged 및 cert 관련 볼륨 마운트
+### 6.3.3. 해결 1 (o) : config.toml 수정하여 k8s executor 에 privileged 및 cert 관련 볼륨 마운트
 
 - 참고 : [[blog] runner 의 config.toml 에 kubernetes 관련 설정 참고](https://adamrushuk.github.io/running-kind-in-gitlab-ci-on-kubernetes/)
 
