@@ -9,13 +9,13 @@
   - [3.4. docker runtime 을 nvidia 로 설정 (GPU 노드)](#34-docker-runtime-을-nvidia-로-설정-gpu-노드)
   - [3.5. k8s 설치](#35-k8s-설치)
   - [3.6. NVIDIA Device Plugin 설치](#36-nvidia-device-plugin-설치)
-- [4. dcgm exporter 설치 (Docker) (참고)](#4-dcgm-exporter-설치-docker-참고)
-- [5. dcgm exporter 설치 (helm)](#5-dcgm-exporter-설치-helm)
-- [6. 서비스 확인](#6-서비스-확인)
-  - [6.1. GPU 스케줄링 후 로그 확인](#61-gpu-스케줄링-후-로그-확인)
-  - [6.2. prometheus 에서 dcgm metrics 확인](#62-prometheus-에서-dcgm-metrics-확인)
-  - [6.3. grafana 에서 dcgm metrics 확인](#63-grafana-에서-dcgm-metrics-확인)
-- [7. dcgm exporter 를 prometheus 에 연동하기](#7-dcgm-exporter-를-prometheus-에-연동하기)
+  - [3.7. kube-prometheus-stack 구축 (helm)](#37-kube-prometheus-stack-구축-helm)
+- [4. dcgm exporter 설치 (helm)](#4-dcgm-exporter-설치-helm)
+- [5. 서비스 확인](#5-서비스-확인)
+  - [5.1. prometheus 에서 dcgm metrics 확인](#51-prometheus-에서-dcgm-metrics-확인)
+  - [5.2. grafana 에서 dcgm metrics 확인](#52-grafana-에서-dcgm-metrics-확인)
+- [6. 기타](#6-기타)
+  - [6.1. dcgm exporter 설치 (Docker) (참고)](#61-dcgm-exporter-설치-docker-참고)
 
 **참고**
 
@@ -27,13 +27,16 @@
 
 # 1. 요약
 
->
+- NVIDIA GPU 의 metrics 을 모니터링 하려면, helm 을 사용해 dcgm exporter 를 구축하고 prometheus+grafana 를 통해 시각화하면 된다.
+- 이런 기능을 하기 위해서는 다양한 전제 조건이 필요하다. nvidia driver 설치, docker 설치, nvidia-docker2 설치, docker runtime 설정, k8s 구성, NVIDIA Device Plugin 설치, kube-prometheus-stack 설치, dcgm exporter 설치, grafana nvidia 대시보드 추가 까지 필요한 작업들이 굉장히 많다.
 
 # 2. dcgm exporter 란?
 
 - NVIDIA GPU metrics 에 대한 prometheus exporter
 
 # 3. 전제 조건
+
+- 아래 전제 조건들 중에 불충족한 것들이 있다면, 내용을 따라 진행하자.
 
 ## 3.1. nvidia driver 설치
 
@@ -161,72 +164,28 @@ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scr
    && ./get_helm.sh
 ```
 
-# 4. dcgm exporter 설치 (Docker) (참고)
-
-``` bash
-$ docker run -d --gpus all --rm -p 9400:9400 nvcr.io/nvidia/k8s/dcgm-exporter:2.2.9-2.4.0-ubuntu18.04
-$ curl localhost:9400/metrics
-# HELP DCGM_FI_DEV_SM_CLOCK SM clock frequency (in MHz).
-# TYPE DCGM_FI_DEV_SM_CLOCK gauge
-# HELP DCGM_FI_DEV_MEM_CLOCK Memory clock frequency (in MHz).
-# TYPE DCGM_FI_DEV_MEM_CLOCK gauge
-# HELP DCGM_FI_DEV_MEMORY_TEMP Memory temperature (in C).
-# TYPE DCGM_FI_DEV_MEMORY_TEMP gauge
-...
-DCGM_FI_DEV_SM_CLOCK{gpu="0", UUID="GPU-604ac76c-d9cf-fef3-62e9-d92044ab6e52"} 139
-DCGM_FI_DEV_MEM_CLOCK{gpu="0", UUID="GPU-604ac76c-d9cf-fef3-62e9-d92044ab6e52"} 405
-DCGM_FI_DEV_MEMORY_TEMP{gpu="0", UUID="GPU-604ac76c-d9cf-fef3-62e9-d92044ab6e52"} 9223372036854775794
-...
-```
-
-# 5. dcgm exporter 설치 (helm)
-
 helm repo 추가
 
 ``` bash
-helm repo add gpu-helm-charts \
-  https://nvidia.github.io/dcgm-exporter/helm-charts
+helm repo add nvdp https://nvidia.github.io/k8s-device-plugin \
+   && helm repo update
 ```
 
-helm repo 업데이트
+device plugin 배포
 
 ``` bash
-helm repo update
+helm install nvidia-device-plugin nvdp/nvidia-device-plugin
 ```
 
-chart 다운로드 (옵션)
+배포 확인
 
 ``` bash
-helm fetch gpu-helm-charts/dcgm-exporter --untar
+$ kubectl get po -n kube-system | grep nvidia
+NAMESPACE     NAME                                       READY   STATUS      RESTARTS   AGE
+kube-system   nvidia-device-plugin-1595448322-42vgf      1/1     Running     2          9d
 ```
 
-override-values.yaml 작성
-
-``` yaml
-
-```
-
-helm chart 설치
-
-``` bash
-helm update --install \
- -n dcgm --create-namespace \
- dcgm \
- gpu-helm-charts/dcgm-exporter
-```
-
-설치 확인
-
-``` bash
-kubectl get po -n dcgm
-kubectl get svc -n dcgm
-```
-
-# 6. 서비스 확인
-
-## 6.1. GPU 스케줄링 후 로그 확인
-
-CUDA 파드 배포
+CUDA 파드 배포 테스트
 
 - gpu 1개 요청
 
@@ -273,16 +232,171 @@ Done
 kubectl delete po gpu-operator-test
 ```
 
-## 6.2. prometheus 에서 dcgm metrics 확인
+## 3.7. kube-prometheus-stack 구축 (helm)
+
+`prometheus-community` helm repo 추가
+
+``` bash
+helm repo add prometheus-community \
+   https://prometheus-community.github.io/helm-charts
+
+### 확인
+helm search repo kube-prometheus
+```
+
+kube-prometheus-stack 차트 다운로드
+
+``` bash
+helm fetch prometheus-community/kube-prometheus-stack --untar
+cd kube-prometheus-stack
+```
+
+override-values.yaml 작성
+
+통신 방식 설정
+
+- 아래 예제에서는 nodeport 를 사용하도록 설정함.
+- 필요에 따라 ingress 를 사용하도록 설정을 바꿔도 됨.
+
+``` yaml
+From:
+ ## Port to expose on each node
+ ## Only used if service.type is 'NodePort'
+ ##
+ nodePort: 30090
+
+ ## Loadbalancer IP
+ ## Only use if service.type is "loadbalancer"
+ loadBalancerIP: ""
+ loadBalancerSourceRanges: []
+ ## Service type
+ ##
+ type: ClusterIP
+
+To:
+ ## Port to expose on each node
+ ## Only used if service.type is 'NodePort'
+ ##
+ nodePort: 30090
+
+ ## Loadbalancer IP
+ ## Only use if service.type is "loadbalancer"
+ loadBalancerIP: ""
+ loadBalancerSourceRanges: []
+ ## Service type
+ ##
+ type: NodePort
+
+serviceMonitorSelectorNilUsesHelmValues: false
+
+additionalScrapeConfigs:
+- job_name: gpu-metrics
+  scrape_interval: 1s
+  metrics_path: /metrics
+  scheme: http
+  kubernetes_sd_configs:
+  - role: endpoints
+    namespaces:
+      names:
+      - gpu-operator-resources
+  relabel_configs:
+  - source_labels: [__meta_kubernetes_pod_node_name]
+    action: replace
+    target_label: kubernetes_node
+```
+
+설치
+
+``` bash
+helm install prometheus-community/kube-prometheus-stack \
+   --create-namespace --namespace prometheus \
+   prometheus-stack \
+   --values override-values.yaml
+```
+
+설치 확인
+
+``` bash
+kubectl get all -n prometheus
+```
+
+# 4. dcgm exporter 설치 (helm)
+
+helm repo 추가
+
+``` bash
+helm repo add gpu-helm-charts \
+  https://nvidia.github.io/dcgm-exporter/helm-charts
+```
+
+helm repo 업데이트
+
+``` bash
+helm repo update
+```
+
+chart 다운로드 (옵션)
+
+``` bash
+helm fetch gpu-helm-charts/dcgm-exporter --untar
+```
+
+override-values.yaml 작성
+
+``` yaml
+
+```
+
+helm chart 설치
+
+``` bash
+helm update --install \
+ -n dcgm --create-namespace \
+ dcgm \
+ gpu-helm-charts/dcgm-exporter
+```
+
+설치 확인
+
+``` bash
+kubectl get po -n dcgm
+kubectl get svc -n dcgm
+```
+
+# 5. 서비스 확인
+
+## 5.1. prometheus 에서 dcgm metrics 확인
 
 - `DCGM_FI_DEV_GPU_UTIL` 로 쿼리하여 확인 가능.
 
 ![](/.uploads2/2021-09-29-23-49-06.png)
 
-## 6.3. grafana 에서 dcgm metrics 확인
+## 5.2. grafana 에서 dcgm metrics 확인
 
-# 7. dcgm exporter 를 prometheus 에 연동하기
+nvidia dashboard 추가
 
-- dcgm-exporter 는 GPU Operator 의 일부로 배포된다. prometheus 에 연동하기 위해서 Operator
+- `https://grafana.com/grafana/dashboards/12239` 추가
 
-[작성중](https://docs.nvidia.com/datacenter/cloud-native/kubernetes/dcgme2e.html#gpu-telemetry)
+![](/.uploads2/2021-09-30-00-35-48.png)
+![](/.uploads2/2021-09-30-00-37-05.png)
+![](/.uploads2/2021-09-30-00-37-14.png)
+
+# 6. 기타
+
+## 6.1. dcgm exporter 설치 (Docker) (참고)
+
+``` bash
+$ docker run -d --gpus all --rm -p 9400:9400 nvcr.io/nvidia/k8s/dcgm-exporter:2.2.9-2.4.0-ubuntu18.04
+$ curl localhost:9400/metrics
+# HELP DCGM_FI_DEV_SM_CLOCK SM clock frequency (in MHz).
+# TYPE DCGM_FI_DEV_SM_CLOCK gauge
+# HELP DCGM_FI_DEV_MEM_CLOCK Memory clock frequency (in MHz).
+# TYPE DCGM_FI_DEV_MEM_CLOCK gauge
+# HELP DCGM_FI_DEV_MEMORY_TEMP Memory temperature (in C).
+# TYPE DCGM_FI_DEV_MEMORY_TEMP gauge
+...
+DCGM_FI_DEV_SM_CLOCK{gpu="0", UUID="GPU-604ac76c-d9cf-fef3-62e9-d92044ab6e52"} 139
+DCGM_FI_DEV_MEM_CLOCK{gpu="0", UUID="GPU-604ac76c-d9cf-fef3-62e9-d92044ab6e52"} 405
+DCGM_FI_DEV_MEMORY_TEMP{gpu="0", UUID="GPU-604ac76c-d9cf-fef3-62e9-d92044ab6e52"} 9223372036854775794
+...
+```
